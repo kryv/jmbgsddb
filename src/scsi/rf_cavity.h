@@ -9,11 +9,6 @@
 // Phase space dimension; including vector for orbit/1st moment.
 # define PS_Dim Moment2State::maxsize // Set to 7; to include orbit.
 
-// Mpultipole level: 0 only include focusing and defocusing effects,
-//                   1 include dipole terms,
-//                   2 include quadrupole terms.
-extern int MpoleLevel;
-
 
 class CavDataType {
 // Cavity on-axis longitudinal electric field vs. s.
@@ -94,10 +89,10 @@ struct ElementRFCavity : public Moment2ElementBase
             throw std::runtime_error(strm.str());
         }
 
-        this->transfer_raw(state_t::PS_X, state_t::PS_PX) = L;
-        this->transfer_raw(state_t::PS_Y, state_t::PS_PY) = L;
+        transfer_raw(state_t::PS_X, state_t::PS_PX) = L;
+        transfer_raw(state_t::PS_Y, state_t::PS_PY) = L;
         // For total path length.
-//        this->transfer(state_t::PS_S, state_t::PS_S)  = L;
+//        transfer(state_t::PS_S, state_t::PS_S)  = L;
     }
 
     void GetCavMatParams(const int cavi,
@@ -111,15 +106,56 @@ struct ElementRFCavity : public Moment2ElementBase
                    const double beta_tab[], const double gamma_tab[], const double Lambda,
                    Particle &real, const double IonFys[], const double Rm, value_mat &M);
 
-    void PropagateLongRFCav(Config &conf, Particle &ref);
+    void PropagateLongRFCav(Particle &ref);
 
-    void InitRFCav(const Config &conf, Particle &real, double &accIonW,
+    void InitRFCav(Particle &real, double &accIonW,
                    double &avebeta, double &avegamma, value_mat &M);
 
     void GetCavBoost(const CavDataType &CavData, Particle &state, const double IonFy0, const double fRF,
                      const double EfieldScl, double &IonFy, double &accIonW);
 
     virtual ~ElementRFCavity() {}
+
+    virtual void advance(StateBase& s)
+    {
+        state_t&  ST = static_cast<state_t&>(s);
+        using namespace boost::numeric::ublas;
+
+        // IonEk is Es + E_state; the latter is set by user.
+        ST.real.recalc();
+
+        if(ST.real.IonEk!=last_Kenergy_in) {
+            // need to re-calculate energy dependent terms
+
+            recompute_matrix(ST); // updates transfer and last_Kenergy_out
+
+            get_misalign(ST);
+
+            ST.real.recalc();
+        }
+
+        // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
+        // Matrix elements are scaled with particle energy.
+
+        ST.pos += length;
+
+        ST.moment0 = prod(misalign, ST.moment0);
+        ST.moment0 = prod(transfer, ST.moment0);
+
+        ST.moment0[state_t::PS_S]  = ST.real.phis - ST.ref.phis;
+        ST.moment0[state_t::PS_PS] = (ST.real.IonEk-ST.ref.IonEk)/MeVtoeV;
+
+        ST.moment0 = prod(misalign_inv, ST.moment0);
+
+        scratch  = prod(misalign, ST.state);
+        ST.state = prod(scratch, trans(misalign));
+
+        scratch  = prod(transfer, ST.state);
+        ST.state = prod(scratch, trans(transfer));
+
+        scratch  = prod(misalign_inv, ST.state);
+        ST.state = prod(scratch, trans(misalign_inv));
+    }
 
     virtual void recompute_matrix(state_t& ST)
     {
@@ -128,14 +164,20 @@ struct ElementRFCavity : public Moment2ElementBase
 
         last_Kenergy_in = ST.real.IonEk;
 
-        this->ElementRFCavity::PropagateLongRFCav(conf(), ST.ref);
+        // J.B. Bug in TLM.
+        double SampleIonK = ST.real.SampleIonK;
+
+        ElementRFCavity::PropagateLongRFCav(ST.ref);
 
         last_Kenergy_out = ST.real.IonEk;
 
         // Define initial conditions.
         double accIonW, avebeta, avegamma;
 
-        this->ElementRFCavity::InitRFCav(conf(), ST.real, accIonW, avebeta, avegamma, transfer);
+        ElementRFCavity::InitRFCav(ST.real, accIonW, avebeta, avegamma, transfer);
+
+        // J.B. Bug in TLM.
+        ST.real.SampleIonK = SampleIonK;
    }
 
     virtual const char* type_name() const {return "rfcavity";}

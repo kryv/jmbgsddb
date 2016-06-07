@@ -3,12 +3,10 @@
 
 #include "scsi/constants.h"
 #include "scsi/moment2.h"
+#include "scsi/moment2_sup.h"
 #include "scsi/rf_cavity.h"
 
 // RF Cavity beam dynamics functions.
-
-
-int MpoleLevel = 2;
 
 
 void CavDataType::RdData(const std::string &FileName)
@@ -37,7 +35,7 @@ void CavDataType::RdData(const std::string &FileName)
     if (false) {
         std::cout << "\n";
         for (size_t k = 0; k < this->s.size(); k++)
-            this->show(std::cout, k);
+            show(std::cout, k);
     }
 }
 
@@ -45,21 +43,21 @@ void CavDataType::RdData(const std::string &FileName)
 void CavDataType::show(std::ostream& strm, const int k) const
 {
     strm << std::scientific << std::setprecision(5)
-         << std::setw(13) << this->s[k] << std::setw(13) << this->Elong[k] << "\n";
+         << std::setw(13) << s[k] << std::setw(13) << Elong[k] << "\n";
 }
 
 
 void CavDataType::show(std::ostream& strm) const
 {
-    for (unsigned int k = 0; k < this->s.size(); k++)
-        this->show(strm, k);
+    for (unsigned int k = 0; k < s.size(); k++)
+        show(strm, k);
 }
 
 
 void CavTLMLineType::clear(void)
 {
-    this->s.clear(); this->Elem.clear(); this->E0.clear();
-    this->T.clear(); this->S.clear(); this->Accel.clear();
+    s.clear(); Elem.clear(); E0.clear();
+    T.clear(); S.clear(); Accel.clear();
 }
 
 
@@ -74,17 +72,17 @@ void CavTLMLineType::set(const double s, const std::string &Elem, const double E
 void CavTLMLineType::show(std::ostream& strm, const int k) const
 {
     strm << std::fixed << std::setprecision(5)
-         << std::setw(9) << this->s[k] << std::setw(10) << this->Elem[k]
+         << std::setw(9) << s[k] << std::setw(10) << Elem[k]
          << std::scientific << std::setprecision(10)
-         << std::setw(18) << this->T[k] << std::setw(18) << this->S[k]
-         << std::setw(18) << this->Accel[k] << "\n";
+         << std::setw(18) << T[k] << std::setw(18) << S[k]
+         << std::setw(18) << Accel[k] << "\n";
 }
 
 
 void CavTLMLineType::show(std::ostream& strm) const
 {
-    for (unsigned int k = 0; k < this->s.size(); k++)
-        this->show(strm, k);
+    for (unsigned int k = 0; k < s.size(); k++)
+        show(strm, k);
 }
 
 
@@ -557,14 +555,35 @@ void EvalGapModel(const double dis, const double IonW0, Particle &real, const do
               + real.IonZ*V0*k*(Tp*sin(IonFy0+k*Ecen)+Sp*cos(IonFy0+k*Ecen))/(2e0*(IonW0-real.IonEs)/MeVtoeV);
 }
 
+int get_MpoleLevel(const Config &conf)
+{
+    int         MpoleLevel;
+    std::string str = conf.get<std::string>("MpoleLevel", "2");
+    if (str == "0")
+        MpoleLevel = 0;
+    else if (str == "1")
+        MpoleLevel = 1;
+    else if (str == "2")
+        MpoleLevel = 2;
+    else {
+        std::cout << "get_MpoleLevel: undef. MpoleLevel " << MpoleLevel << "\n";
+        exit(1);
+    }
+
+    return MpoleLevel;
+}
+
 
 void ElementRFCavity::GetCavMatParams(const int cavi, const double beta_tab[], const double gamma_tab[], const double CaviIonK[])
 {
     // Evaluate time transit factors and acceleration.
 
-    std::string       line, Elem, Name;
-    double            s, Length, Aper, E0, T, S, Accel;
+    std::string line, Elem, Name;
+    int         MpoleLevel;
+    double      s, Length, Aper, E0, T, S, Accel;
     std::stringstream str;
+
+    MpoleLevel = get_MpoleLevel(conf());
 
     inf.clear();
     inf.seekg(0, inf.beg);
@@ -696,7 +715,7 @@ void ElementRFCavity::GenCavMat(const int cavi, const double dis, const double E
      * 2-gap matrix model.                                            */
 
     std::string       line, Elem, Name;
-    int               seg, n;
+    int               MpoleLevel, seg, n;
     double            Length, Aper, Efield, s, k_s[3];
     double            Ecens[2], Ts[2], Ss[2], V0s[2], ks[2], L1, L2, L3;
     double            beta, gamma, kfac, V0, T, S, kfdx, kfdy, dpy, Accel, IonFy;
@@ -709,6 +728,8 @@ void ElementRFCavity::GenCavMat(const int cavi, const double dis, const double E
     using boost::numeric::ublas::prod;
 
     Idmat = boost::numeric::ublas::identity_matrix<double>(PS_Dim);
+
+    MpoleLevel = get_MpoleLevel(conf());
 
     inf.clear();
     inf.seekg(0, inf.beg);
@@ -974,8 +995,8 @@ void ElementRFCavity::GetCavMat(const int cavi, const int cavilabel, const doubl
         printf("V0:       %15.10f %15.10f\n", V0[0], V0[1]);
     }
 
-    this->ElementRFCavity::GetCavMatParams(cavi, beta_s, gamma_s, CaviIonK);
-    this->ElementRFCavity::GenCavMat(cavi, dis, EfieldScl, TTF_tab, beta_s, gamma_s, CaviLambda, real, IonFy_s, Rm, M);
+    ElementRFCavity::GetCavMatParams(cavi, beta_s, gamma_s, CaviIonK);
+    ElementRFCavity::GenCavMat(cavi, dis, EfieldScl, TTF_tab, beta_s, gamma_s, CaviLambda, real, IonFy_s, Rm, M);
 }
 
 
@@ -1014,20 +1035,20 @@ void ElementRFCavity::GetCavBoost(const CavDataType &CavData, Particle &state, c
 }
 
 
-void ElementRFCavity::PropagateLongRFCav(Config &conf, Particle &ref)
+void ElementRFCavity::PropagateLongRFCav(Particle &ref)
 {
     std::string CavType;
     int         cavi;
     double      fRF, multip, IonFys, EfieldScl, caviFy, IonFy_i, IonFy_o, accIonW;
 
-    CavType = conf.get<std::string>("cavtype");
+    CavType = conf().get<std::string>("cavtype");
     if (CavType == "0.041QWR") {
         cavi = 1;
-    } else if (conf.get<std::string>("cavtype") == "0.085QWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.085QWR") {
         cavi = 2;
-    } else if (conf.get<std::string>("cavtype") == "0.29HWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.29HWR") {
         cavi = 3;
-    } else if (conf.get<std::string>("cavtype") == "0.53HWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.53HWR") {
         cavi = 4;
     } else {
         std::ostringstream strm;
@@ -1035,19 +1056,19 @@ void ElementRFCavity::PropagateLongRFCav(Config &conf, Particle &ref)
         throw std::runtime_error(strm.str());
     }
 
-    fRF       = conf.get<double>("f");
+    fRF       = conf().get<double>("f");
     multip    = fRF/SampleFreq;
-    IonFys    = conf.get<double>("phi")*M_PI/180e0;  // Synchrotron phase [rad].
-    EfieldScl = conf.get<double>("scl_fac");         // Electric field scale factor.
+    IonFys    = conf().get<double>("phi")*M_PI/180e0;  // Synchrotron phase [rad].
+    EfieldScl = conf().get<double>("scl_fac");         // Electric field scale factor.
 
     caviFy = GetCavPhase(cavi, ref, IonFys, multip);
 
     IonFy_i = multip*ref.phis + caviFy;
-    conf.set<double>("phi_ref", caviFy);
+    conf().set<double>("phi_ref", caviFy);
 
     // For the reference particle, evaluate the change of:
     // kinetic energy, absolute phase, beta, and gamma.
-    this->GetCavBoost(CavData, ref, IonFy_i, fRF, EfieldScl, IonFy_o, accIonW);
+    GetCavBoost(CavData, ref, IonFy_i, fRF, EfieldScl, IonFy_o, accIonW);
 
     ref.IonEk       = ref.IonW - ref.IonEs;
     ref.recalc();
@@ -1055,35 +1076,35 @@ void ElementRFCavity::PropagateLongRFCav(Config &conf, Particle &ref)
 }
 
 
-void ElementRFCavity::InitRFCav(const Config &conf, Particle &real, double &accIonW,
+void ElementRFCavity::InitRFCav(Particle &real, double &accIonW,
                                 double &avebeta, double &avegamma, value_mat &M)
 {
     std::string CavType;
     int         cavi, cavilabel, multip;
     double      Rm, IonFy_i, Ek_i, fRF, EfieldScl, IonFy_o;
 
-    CavType = conf.get<std::string>("cavtype");
+    CavType = conf().get<std::string>("cavtype");
     if (CavType == "0.041QWR") {
         cavi       = 1;
         cavilabel  = 41;
         multip     = 1;
         Rm         = 17e0;
-    } else if (conf.get<std::string>("cavtype") == "0.085QWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.085QWR") {
         cavi       = 2;
         cavilabel  = 85;
         multip     = 1;
         Rm         = 17e0;
-    } else if (conf.get<std::string>("cavtype") == "0.29HWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.29HWR") {
         cavi       = 3;
         cavilabel  = 29;
         multip     = 4;
         Rm         = 20e0;
-    } else if (conf.get<std::string>("cavtype") == "0.53HWR") {
+    } else if (conf().get<std::string>("cavtype") == "0.53HWR") {
         cavi       = 4;
         cavilabel  = 53;
         multip     = 4;
         Rm         = 20e0;
-    } else if (conf.get<std::string>("cavtype") == "??EL") {
+    } else if (conf().get<std::string>("cavtype") == "??EL") {
         // 5 Cell elliptical.
         cavi       = 5;
         cavilabel  = 53;
@@ -1095,14 +1116,14 @@ void ElementRFCavity::InitRFCav(const Config &conf, Particle &real, double &accI
         throw std::runtime_error(strm.str());
     }
 
-    IonFy_i   = multip*real.phis + conf.get<double>("phi_ref");
+    IonFy_i   = multip*real.phis + conf().get<double>("phi_ref");
     Ek_i      = real.IonEk;
     real.IonW = real.IonEk + real.IonEs;
 
     avebeta   = real.beta;
     avegamma  = real.gamma;
-    fRF       = conf.get<double>("f");
-    EfieldScl = conf.get<double>("scl_fac");         // Electric field scale factor.
+    fRF       = conf().get<double>("f");
+    EfieldScl = conf().get<double>("scl_fac");         // Electric field scale factor.
 
     ElementRFCavity::GetCavBoost(CavData, real, IonFy_i, fRF, EfieldScl, IonFy_o, accIonW);
 
@@ -1114,5 +1135,5 @@ void ElementRFCavity::InitRFCav(const Config &conf, Particle &real, double &accI
     avegamma        += real.gamma;
     avegamma        /= 2e0;
 
-    this->GetCavMat(cavi, cavilabel, Rm, real, EfieldScl, IonFy_i, Ek_i, fRF, M);
+    GetCavMat(cavi, cavilabel, Rm, real, EfieldScl, IonFy_i, Ek_i, fRF, M);
 }
