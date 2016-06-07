@@ -124,7 +124,8 @@ struct ElementRFCavity : public Moment2ElementBase
         // IonEk is Es + E_state; the latter is set by user.
         ST.real.recalc();
 
-        if(ST.real.IonEk!=last_Kenergy_in) {
+        // mod for python interface by KF
+        if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
             // need to re-calculate energy dependent terms
 
             recompute_matrix(ST); // updates transfer and last_Kenergy_out
