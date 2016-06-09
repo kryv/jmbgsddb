@@ -365,6 +365,9 @@ void Moment2ElementBase::advance(StateBase& s)
 
     // IonEk is Es + E_state; the latter is set by user.
     ST.real.recalc();
+    //@-
+    ST.ref.recalc();
+
 
     // mod for python interface by KF
     if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
@@ -373,6 +376,9 @@ void Moment2ElementBase::advance(StateBase& s)
         recompute_matrix(ST); // updates transfer and last_Kenergy_out
 
         ST.real.recalc();
+        //@-
+        ST.ref.recalc();
+
     }
 
     // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
@@ -538,6 +544,8 @@ struct ElementSBend : public Moment2ElementBase
 
         // IonEk is Es + E_state; the latter is set by user.
         ST.real.recalc();
+        //@-
+        ST.ref.recalc();
 
         // mod for python interface by KF
         if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
@@ -546,6 +554,9 @@ struct ElementSBend : public Moment2ElementBase
             recompute_matrix(ST); // updates transfer and last_Kenergy_out
 
             ST.real.recalc();
+            //@-
+            ST.ref.recalc();
+
         }
 
         // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
