@@ -184,45 +184,57 @@ struct ElementRFCavity : public Moment2ElementBase
         using namespace boost::numeric::ublas;
 
         // IonEk is Es + E_state; the latter is set by user.
-        ST.real.recalc();
-        //@-
-        ST.ref.recalc();
 
-        // mod for python interface by KF
-        if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
-            // need to re-calculate energy dependent terms
+        if ((int)ST.clng){
+            // limited longitudinal run
+            ST.ref.recalc();
+            ElementRFCavity::PropagateLongRFCav(ST.ref);
+            ST.pos += length;
+            ST.ref.recalc();
 
-            recompute_matrix(ST); // updates transfer and last_Kenergy_out
-
-            get_misalign(ST);
+        } else {
 
             ST.real.recalc();
             //@-
             ST.ref.recalc();
 
-        }
+            // mod for python interface by KF
+            if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
+                // need to re-calculate energy dependent terms
 
-        // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
-        // Matrix elements are scaled with particle energy.
+                recompute_matrix(ST); // updates transfer and last_Kenergy_out
 
-        ST.pos += length;
+                get_misalign(ST);
 
-        ST.moment0 = prod(misalign, ST.moment0);
-        ST.moment0 = prod(transfer, ST.moment0);
+                ST.real.recalc();
+                //@-
+                ST.ref.recalc();
 
-        ST.moment0[state_t::PS_S]  = ST.real.phis - ST.ref.phis;
-        ST.moment0[state_t::PS_PS] = (ST.real.IonEk-ST.ref.IonEk)/MeVtoeV;
+            }
 
-        ST.moment0 = prod(misalign_inv, ST.moment0);
+            // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
+            // Matrix elements are scaled with particle energy.
 
-        scratch  = prod(misalign, ST.state);
-        ST.state = prod(scratch, trans(misalign));
+            ST.pos += length;
 
-        scratch  = prod(transfer, ST.state);
-        ST.state = prod(scratch, trans(transfer));
+            ST.moment0 = prod(misalign, ST.moment0);
+            ST.moment0 = prod(transfer, ST.moment0);
 
-        scratch  = prod(misalign_inv, ST.state);
-        ST.state = prod(scratch, trans(misalign_inv));
+            ST.moment0[state_t::PS_S]  = ST.real.phis - ST.ref.phis;
+            ST.moment0[state_t::PS_PS] = (ST.real.IonEk-ST.ref.IonEk)/MeVtoeV;
+
+            ST.moment0 = prod(misalign_inv, ST.moment0);
+
+            scratch  = prod(misalign, ST.state);
+            ST.state = prod(scratch, trans(misalign));
+
+            scratch  = prod(transfer, ST.state);
+            ST.state = prod(scratch, trans(transfer));
+
+            scratch  = prod(misalign_inv, ST.state);
+            ST.state = prod(scratch, trans(misalign_inv));
+
+            }
     }
 
     virtual void recompute_matrix(state_t& ST)

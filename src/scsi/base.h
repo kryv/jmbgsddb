@@ -37,6 +37,8 @@ struct StateBase : public boost::noncopyable
 
     double pos;        //!< absolute longitudinal position at end of Element
 
+    double clng;
+
     virtual void assign(const StateBase& other) =0;
 
     virtual void show(std::ostream&) const {}

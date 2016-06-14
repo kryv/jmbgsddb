@@ -363,38 +363,48 @@ void Moment2ElementBase::advance(StateBase& s)
     state_t&  ST = static_cast<state_t&>(s);
     using namespace boost::numeric::ublas;
 
-    // IonEk is Es + E_state; the latter is set by user.
-    ST.real.recalc();
-    //@-
-    ST.ref.recalc();
+    if ((int)ST.clng) {
+        // limited longitudinal run
+        ST.ref.recalc();
+        ST.pos += length;
+        ST.ref.phis   += ST.ref.SampleIonK*length*MtoMM;
 
+    } else {
 
-    // mod for python interface by KF
-    if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
-        // need to re-calculate energy dependent terms
-
-        recompute_matrix(ST); // updates transfer and last_Kenergy_out
-
+        // IonEk is Es + E_state; the latter is set by user.
         ST.real.recalc();
         //@-
         ST.ref.recalc();
 
+        // mod for python interface by KF
+        if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
+            // need to re-calculate energy dependent terms
+
+            recompute_matrix(ST); // updates transfer and last_Kenergy_out
+
+            ST.real.recalc();
+            //@-
+            ST.ref.recalc();
+
+        }
+
+        // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
+        // Matrix elements are scaled with particle energy.
+
+        ST.pos += length;
+
+        ST.ref.phis   += ST.ref.SampleIonK*length*MtoMM;
+        ST.real.phis  += ST.real.SampleIonK*length*MtoMM;
+        ST.real.IonEk  = last_Kenergy_out;
+
+        ST.moment0 = prod(transfer, ST.moment0);
+
+        scratch  = prod(transfer, ST.state);
+        ST.state = prod(scratch, trans(transfer));
+    
     }
-
-    // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
-    // Matrix elements are scaled with particle energy.
-
-    ST.pos += length;
-
-    ST.ref.phis   += ST.ref.SampleIonK*length*MtoMM;
-    ST.real.phis  += ST.real.SampleIonK*length*MtoMM;
-    ST.real.IonEk  = last_Kenergy_out;
-
-    ST.moment0 = prod(transfer, ST.moment0);
-
-    scratch  = prod(transfer, ST.state);
-    ST.state = prod(scratch, trans(transfer));
 }
+
 
 void Moment2ElementBase::recompute_matrix(state_t& ST)
 {
@@ -542,55 +552,65 @@ struct ElementSBend : public Moment2ElementBase
         state_t&  ST = static_cast<state_t&>(s);
         using namespace boost::numeric::ublas;
 
-        // IonEk is Es + E_state; the latter is set by user.
-        ST.real.recalc();
-        //@-
-        ST.ref.recalc();
+        if ((int)ST.clng) {
+            // limited longitudinal run
+            ST.ref.recalc();
+            ST.pos += length;
+            ST.ref.phis   += ST.ref.SampleIonK*length*MtoMM;
 
-        // mod for python interface by KF
-        if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
-            // need to re-calculate energy dependent terms
+        } else {
 
-            recompute_matrix(ST); // updates transfer and last_Kenergy_out
-
+            // IonEk is Es + E_state; the latter is set by user.
             ST.real.recalc();
             //@-
             ST.ref.recalc();
 
+            // mod for python interface by KF
+            if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
+                // need to re-calculate energy dependent terms
+
+                recompute_matrix(ST); // updates transfer and last_Kenergy_out
+
+                ST.real.recalc();
+                //@-
+                ST.ref.recalc();
+
+            }
+
+            // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
+            // Matrix elements are scaled with particle energy.
+
+            ST.pos += length;
+
+            phis_temp = ST.moment0[state_t::PS_S];
+
+            ST.moment0 = prod(transfer, ST.moment0);
+
+            ST.ref.phis += ST.ref.SampleIonK*length*MtoMM;
+
+
+            dphis_temp = ST.moment0[state_t::PS_S] - phis_temp;
+
+            std::string HdipoleFitMode = conf().get<std::string>("HdipoleFitMode", "1");
+            if (HdipoleFitMode != "1") {
+                di_bg     = conf().get<double>("bg");
+                // Dipole reference energy.
+                Ek00      = (sqrt(sqr(di_bg)+1e0)-1e0)*ST.ref.IonEs;
+                gamma00   = (Ek00+ST.ref.IonEs)/ST.ref.IonEs;
+                beta00    = sqrt(1e0-1e0/sqr(gamma00));
+                IonK_Bend = 2e0*M_PI/(beta00*SampleLambda);
+
+                // J.B.: this is odd.
+                // ST.real.phis  += IonK_Bend*length*MtoMM + dphis_temp;
+                ST.real.phis  += ST.real.SampleIonK*length*MtoMM + dphis_temp;
+            } else
+                ST.real.phis  += ST.real.SampleIonK*length*MtoMM + dphis_temp;
+
+            ST.real.IonEk  = last_Kenergy_out;
+
+            scratch  = prod(transfer, ST.state);
+            ST.state = prod(scratch, trans(transfer));
         }
-
-        // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
-        // Matrix elements are scaled with particle energy.
-
-        ST.pos += length;
-
-        phis_temp = ST.moment0[state_t::PS_S];
-
-        ST.moment0 = prod(transfer, ST.moment0);
-
-        ST.ref.phis += ST.ref.SampleIonK*length*MtoMM;
-
-        dphis_temp = ST.moment0[state_t::PS_S] - phis_temp;
-
-        std::string HdipoleFitMode = conf().get<std::string>("HdipoleFitMode", "1");
-        if (HdipoleFitMode != "1") {
-            di_bg     = conf().get<double>("bg");
-            // Dipole reference energy.
-            Ek00      = (sqrt(sqr(di_bg)+1e0)-1e0)*ST.ref.IonEs;
-            gamma00   = (Ek00+ST.ref.IonEs)/ST.ref.IonEs;
-            beta00    = sqrt(1e0-1e0/sqr(gamma00));
-            IonK_Bend = 2e0*M_PI/(beta00*SampleLambda);
-
-            // J.B.: this is odd.
-//            ST.real.phis  += IonK_Bend*length*MtoMM + dphis_temp;
-            ST.real.phis  += ST.real.SampleIonK*length*MtoMM + dphis_temp;
-        } else
-            ST.real.phis  += ST.real.SampleIonK*length*MtoMM + dphis_temp;
-
-        ST.real.IonEk  = last_Kenergy_out;
-
-        scratch  = prod(transfer, ST.state);
-        ST.state = prod(scratch, trans(transfer));
     }
 
     virtual void recompute_matrix(state_t& ST)

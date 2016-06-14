@@ -18,18 +18,21 @@ StateBase::~StateBase() {}
 StateBase::StateBase(const Config& c)
     :next_elem(0)
     ,pos(0e0)
+    ,clng(0e0)
     ,pyptr(0)
 {}
 
 StateBase::StateBase(const StateBase& o, clone_tag)
     :next_elem(0)
     ,pos(o.pos)
+    ,clng(o.clng)
     ,pyptr(0)
 {}
 
 void StateBase::assign(const StateBase& other)
 {
     pos = other.pos;
+    clng = other.clng;
 }
 
 bool StateBase::getArray(unsigned idx, ArrayInfo& Info)
@@ -44,6 +47,12 @@ bool StateBase::getArray(unsigned idx, ArrayInfo& Info)
     } else if(idx==I++) {
         Info.name = "pos";
         Info.ptr = &pos;
+        Info.type = ArrayInfo::Double;
+        Info.ndim = 0;
+        return true;
+    } else if(idx==I++) {
+        Info.name = "clng";
+        Info.ptr = &clng;
         Info.type = ArrayInfo::Double;
         Info.ndim = 0;
         return true;
