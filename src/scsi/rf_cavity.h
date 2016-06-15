@@ -199,18 +199,18 @@ struct ElementRFCavity : public Moment2ElementBase
             ST.ref.recalc();
 
             // mod for python interface by KF
-            if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
-                // need to re-calculate energy dependent terms
+            //if(ST.real.IonEk!=last_Kenergy_in || ST.real.IonZ==ST.ref.IonZ) {
+            // need to re-calculate energy dependent terms
 
-                recompute_matrix(ST); // updates transfer and last_Kenergy_out
+            recompute_matrix(ST); // updates transfer and last_Kenergy_out
 
-                get_misalign(ST);
+            get_misalign(ST);
 
-                ST.real.recalc();
-                //@-
-                ST.ref.recalc();
+            ST.real.recalc();
+            //@-
+            ST.ref.recalc();
 
-            }
+            //}
 
             // recompute_matrix only called when ST.IonEk != last_Kenergy_in.
             // Matrix elements are scaled with particle energy.
